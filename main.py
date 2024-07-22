@@ -33,7 +33,6 @@ class Hand:
     
     def calculate_value(self):
         value = sum(VALUES[card.rank] for card in self.cards)
-        # Adjust for Aces
         num_aces = sum(1 for card in self.cards if card.rank == 'A')
         while value > 21 and num_aces:
             value -= 10
@@ -43,17 +42,27 @@ class Hand:
     def __repr__(self):
         return ', '.join(map(str, self.cards))
 
-# Game class
+# PokerGame class
 class PokerGame:
     def __init__(self):
         self.deck = Deck()
         self.player_hand = Hand()
         self.dealer_hand = Hand()
+        self.game_over = False
+        self.player_blackjack = False
+        self.dealer_blackjack = False
     
     def deal_initial_cards(self):
         for _ in range(2):
             self.player_hand.add_card(self.deck.deal_card())
             self.dealer_hand.add_card(self.deck.deal_card())
+        self.check_blackjack()
+    
+    def check_blackjack(self):
+        if self.player_hand.calculate_value() == 21:
+            self.player_blackjack = True
+        if self.dealer_hand.calculate_value() == 21:
+            self.dealer_blackjack = True
     
     def show_hands(self, reveal_dealer=False):
         print(f'Player\'s Hand: {self.player_hand} (Value: {self.player_hand.calculate_value()})')
@@ -61,9 +70,56 @@ class PokerGame:
             print(f'Dealer\'s Hand: {self.dealer_hand} (Value: {self.dealer_hand.calculate_value()})')
         else:
             print(f'Dealer\'s Hand: {self.dealer_hand.cards[0]} and [Hidden]')
+    
+    def player_turn(self):
+        while not self.game_over:
+            action = input("Choose action: (H)it or (S)tand: ").upper()
+            if action == 'H':
+                self.player_hand.add_card(self.deck.deal_card())
+                print(f'Player\'s Hand: {self.player_hand} (Value: {self.player_hand.calculate_value()})')
+                if self.player_hand.calculate_value() > 21:
+                    print("Player busts!")
+                    self.game_over = True
+            elif action == 'S':
+                self.game_over = True
+            else:
+                print("Invalid action. Please choose 'H' or 'S'.")
+    
+    def dealer_turn(self):
+        while self.dealer_hand.calculate_value() < 17:
+            self.dealer_hand.add_card(self.deck.deal_card())
+    
+    def determine_winner(self):
+        if self.player_blackjack and not self.dealer_blackjack:
+            return "Player wins with Blackjack!"
+        if self.dealer_blackjack and not self.player_blackjack:
+            return "Dealer wins with Blackjack!"
+        
+        player_value = self.player_hand.calculate_value()
+        dealer_value = self.dealer_hand.calculate_value()
+        
+        if player_value > 21:
+            return "Dealer wins!"
+        elif dealer_value > 21 or player_value > dealer_value:
+            return "Player wins!"
+        elif player_value < dealer_value:
+            return "Dealer wins!"
+        else:
+            return "It's a tie!"
+    
+    def play(self):
+        self.deal_initial_cards()
+        self.show_hands()
+        
+        if not self.player_blackjack and not self.dealer_blackjack:
+            self.player_turn()
+            if not self.game_over:
+                self.dealer_turn()
+            self.show_hands(reveal_dealer=True)
+        
+        print(self.determine_winner())
 
 # Example usage
 if __name__ == "__main__":
     game = PokerGame()
-    game.deal_initial_cards()
-    game.show_hands()
+    game.play()
