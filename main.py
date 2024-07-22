@@ -3,7 +3,7 @@ import random
 # Constants
 SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
 RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-VALUES = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6', '7': 7', '8': 8', '9': 9', '10': 10', 'J': 10', 'Q': 10', 'K': 10', 'A': 11}
+VALUES = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': 11}
 
 # Card class
 class Card:
@@ -178,6 +178,35 @@ class PokerGame:
             play_again = input('Do you want to play another round? (Y/N): ').upper()
             if play_again != 'Y':
                 break
+    
+    def offer_insurance(self):
+        if self.dealer_hand.cards[0].rank == 'A':
+            while True:
+                insurance_bet = input("Dealer shows an Ace. Do you want to take insurance? (Y/N): ").upper()
+                if insurance_bet == 'Y':
+                    insurance = self.player_hands[0].bet / 2
+                    if self.dealer_blackjack:
+                        self.player_bankroll += insurance
+                        print("Dealer has Blackjack! Insurance pays 2:1.")
+                    else:
+                        self.player_bankroll -= insurance
+                        print("Dealer does not have Blackjack. Insurance lost.")
+                    break
+                elif insurance_bet == 'N':
+                    break
+                else:
+                    print("Invalid input. Please choose 'Y' or 'N'.")
+    
+    def split_hands(self):
+        if self.player_hands[0].can_split():
+            hand1 = Hand()
+            hand2 = Hand()
+            hand1.add_card(self.player_hands[0].cards[0])
+            hand2.add_card(self.player_hands[0].cards[1])
+            self.player_hands = [hand1, hand2]
+            for hand in self.player_hands:
+                hand.add_card(self.deck.deal_card())
+            self.show_hands()
 
 # Example usage
 if __name__ == "__main__":
