@@ -52,13 +52,14 @@ class Hand:
 
 # Player class
 class Player:
-    def __init__(self, name, bankroll):
+    def __init__(self, name, bankroll, game):
         self.name = name
         self.bankroll = bankroll
         self.hands = [Hand()]
         self.wins = 0
         self.losses = 0
         self.ties = 0
+        self.game = game  # Reference to the PokerGame instance
     
     def place_bet(self):
         while True:
@@ -83,8 +84,8 @@ class Player:
         if hand.can_split():
             new_hand = Hand()
             new_hand.add_card(hand.cards.pop())
-            hand.add_card(self.deck.deal_card())
-            new_hand.add_card(self.deck.deal_card())
+            hand.add_card(self.game.deck.deal_card())
+            new_hand.add_card(self.game.deck.deal_card())
             self.hands.append(new_hand)
             print(f"{self.name}'s Hands split! New Hand {len(self.hands)} added.")
             return True
@@ -92,7 +93,7 @@ class Player:
 
     def draw_hand(self, hand_index):
         hand = self.hands[hand_index]
-        hand.add_card(self.deck.deal_card())
+        hand.add_card(self.game.deck.deal_card())
     
     def re_bet_after_split(self, hand_index):
         while True:
@@ -131,7 +132,7 @@ class PokerGame:
         self.game_over = False
     
     def add_player(self, name, bankroll):
-        self.players.append(Player(name, bankroll))
+        self.players.append(Player(name, bankroll, self))
     
     def deal_initial_cards(self):
         for _ in range(2):
@@ -215,11 +216,11 @@ class PokerGame:
 
                 if hand.insurance_bet > 0:
                     if self.dealer_blackjack:
-                        player.update_bankroll(hand.insurance_bet * 2)
-                        results.append(f'{player.name} wins insurance bet for Hand {i+1}!')
+                        player.update_bankroll(hand.insurance_bet)
+                        print(f"{player.name} wins insurance for Hand {i+1}!")
                     else:
                         player.update_bankroll(-hand.insurance_bet)
-                        results.append(f'{player.name} loses insurance bet for Hand {i+1}.')
+                        print(f"{player.name} loses insurance for Hand {i+1}.")
 
         return '\n'.join(results)
     
