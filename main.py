@@ -28,6 +28,7 @@ class Hand:
     def __init__(self):
         self.cards = []
         self.bet = 0
+        self.insurance_bet = 0
     
     def add_card(self, card):
         self.cards.append(card)
@@ -46,12 +47,18 @@ class Hand:
     def can_split(self):
         return len(self.cards) == 2 and self.cards[0].rank == self.cards[1].rank
 
+    def is_busted(self):
+        return self.calculate_value() > 21
+
 # Player class
 class Player:
     def __init__(self, name, bankroll):
         self.name = name
         self.bankroll = bankroll
         self.hands = [Hand()]
+        self.wins = 0
+        self.losses = 0
+        self.ties = 0
     
     def place_bet(self):
         while True:
@@ -86,6 +93,33 @@ class Player:
     def draw_hand(self, hand_index):
         hand = self.hands[hand_index]
         hand.add_card(self.deck.deal_card())
+    
+    def re_bet_after_split(self, hand_index):
+        while True:
+            try:
+                bet = int(input(f'{self.name}, place additional bet for Hand {hand_index+1} after split: '))
+                if 0 < bet <= self.bankroll:
+                    self.hands[hand_index].bet += bet
+                    break
+                else:
+                    print(f'Invalid bet amount. You have ${self.bankroll}.')
+            except ValueError:
+                print('Please enter a valid number.')
+
+    def place_insurance(self, hand_index):
+        while True:
+            try:
+                insurance = int(input(f'{self.name}, place your insurance bet for Hand {hand_index+1}: '))
+                if 0 < insurance <= self.bankroll:
+                    self.hands[hand_index].insurance_bet = insurance
+                    break
+                else:
+                    print(f'Invalid insurance amount. You have ${self.bankroll}.')
+            except ValueError:
+                print('Please enter a valid number.')
+
+    def show_statistics(self):
+        print(f"{self.name}'s Statistics - Wins: {self.wins}, Losses: {self.losses}, Ties: {self.ties}")
 
 # PokerGame class
 class PokerGame:
@@ -128,7 +162,7 @@ class PokerGame:
                     if action == 'H':
                         player.draw_hand(i)
                         print(f'{player.name}\'s Hand {i+1}: {hand} (Value: {hand.calculate_value()})')
-                        if hand.calculate_value() > 21:
+                        if hand.is_busted():
                             print(f"{player.name} busts!")
                             break
                     elif action == 'S':
@@ -138,11 +172,12 @@ class PokerGame:
                             player.draw_hand(i)
                             hand.bet *= 2
                             print(f'{player.name}\'s Hand {i+1}: {hand} (Value: {hand.calculate_value()})')
-                            if hand.calculate_value() > 21:
+                            if hand.is_busted():
                                 print(f"{player.name} busts!")
                             break
                     elif action == 'P':
                         if player.split_hand(i):
+                            player.re_bet_after_split(i)
                             self.show_hands()
                         else:
                             print("Cannot split this hand.")
@@ -163,18 +198,29 @@ class PokerGame:
         for player in self.players:
             for i, hand in enumerate(player.hands):
                 player_total = hand.calculate_value()
-                if player_total > 21:
+                if hand.is_busted():
                     results.append(f'{player.name} Hand {i+1} busts!')
                     player.update_bankroll(-hand.bet)
                 elif dealer_value > 21 or player_total > dealer_value:
                     results.append(f'{player.name} Hand {i+1} wins!')
                     player.update_bankroll(hand.bet)
+                    player.wins += 1
                 elif player_total < dealer_value:
                     results.append(f'Dealer wins against {player.name} Hand {i+1}!')
                     player.update_bankroll(-hand.bet)
+                    player.losses += 1
                 else:
                     results.append(f'{player.name} Hand {i+1} ties with Dealer.')
-        
+                    player.ties += 1
+
+                if hand.insurance_bet > 0:
+                    if self.dealer_blackjack:
+                        player.update_bankroll(hand.insurance_bet * 2)
+                        results.append(f'{player.name} wins insurance bet for Hand {i+1}!')
+                    else:
+                        player.update_bankroll(-hand.insurance_bet)
+                        results.append(f'{player.name} loses insurance bet for Hand {i+1}.')
+
         return '\n'.join(results)
     
     def reset_game(self):
@@ -194,6 +240,8 @@ class PokerGame:
             self.show_hands()
             
             if not self.dealer_blackjack:
+                self.offer_insurance()
+                self.side_bets()
                 self.player_turn()
                 if not self.game_over:
                     self.dealer_turn()
@@ -210,6 +258,9 @@ class PokerGame:
                 print('No more players left. Game over.')
                 break
             
+            for player in self.players:
+                player.show_statistics()
+            
             play_again = input('Do you want to play another round? (Y/N): ').upper()
             if play_again != 'Y':
                 break
@@ -220,13 +271,7 @@ class PokerGame:
                 while True:
                     insurance_bet = input(f"{player.name}, Dealer shows an Ace. Do you want to take insurance? (Y/N): ").upper()
                     if insurance_bet == 'Y':
-                        insurance = player.hands[0].bet / 2
-                        if self.dealer_blackjack:
-                            player.update_bankroll(insurance)
-                            print(f"{player.name} wins insurance! Dealer has Blackjack.")
-                        else:
-                            player.update_bankroll(-insurance)
-                            print(f"{player.name} loses insurance. Dealer does not have Blackjack.")
+                        player.place_insurance(0)  # Assume player insures first hand
                         break
                     elif insurance_bet == 'N':
                         break
@@ -242,10 +287,10 @@ class PokerGame:
                     if 0 < bet_amount <= player.bankroll:
                         player.update_bankroll(-bet_amount)
                         print(f"{player.name} placed a side bet of ${bet_amount}.")
-                        # Add side bet logic here (e.g., odds for specific card combinations)
-                        # For now, let's assume a simple side bet outcome
-                        if random.choice([True, False]):
-                            player.update_bankroll(bet_amount * 2)  # Win side bet
+                        # Implement side bet odds
+                        odds = 2 if random.choice([True, False]) else 0  # Simplified odds
+                        if odds > 0:
+                            player.update_bankroll(bet_amount * odds)
                             print(f"{player.name} won the side bet!")
                         else:
                             print(f"{player.name} lost the side bet.")
