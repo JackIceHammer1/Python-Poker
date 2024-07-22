@@ -80,10 +80,10 @@ class PokerGame:
     def player_turn(self):
         for hand in self.player_hands:
             while not self.game_over:
-                action = input("Choose action: (H)it, (S)tand, (D)ouble down, s(P)lit: ").upper()
+                action = input(f"Choose action for Hand {self.player_hands.index(hand) + 1}: (H)it, (S)tand, (D)ouble down, s(P)lit: ").upper()
                 if action == 'H':
                     hand.add_card(self.deck.deal_card())
-                    print(f'Player\'s Hand: {hand} (Value: {hand.calculate_value()})')
+                    print(f'Player\'s Hand {self.player_hands.index(hand) + 1}: {hand} (Value: {hand.calculate_value()})')
                     if hand.calculate_value() > 21:
                         print("Player busts!")
                         self.game_over = True
@@ -93,7 +93,7 @@ class PokerGame:
                     if len(hand.cards) == 2:
                         hand.add_card(self.deck.deal_card())
                         hand.bet *= 2
-                        print(f'Player\'s Hand: {hand} (Value: {hand.calculate_value()})')
+                        print(f'Player\'s Hand {self.player_hands.index(hand) + 1}: {hand} (Value: {hand.calculate_value()})')
                         if hand.calculate_value() > 21:
                             print("Player busts!")
                         break
@@ -104,6 +104,7 @@ class PokerGame:
                         hand.add_card(self.deck.deal_card())
                         new_hand.add_card(self.deck.deal_card())
                         self.player_hands.append(new_hand)
+                        print(f"Hands split! New Hand {len(self.player_hands)} added.")
                         self.show_hands()
                     else:
                         print("Cannot split this hand.")
@@ -122,20 +123,24 @@ class PokerGame:
             self.player_bankroll -= self.player_hands[0].bet
             return "Dealer wins with Blackjack!"
         
-        player_total = sum(hand.calculate_value() for hand in self.player_hands)
+        results = []
         dealer_value = self.dealer_hand.calculate_value()
         
-        if player_total > 21:
-            self.player_bankroll -= sum(hand.bet for hand in self.player_hands)
-            return "Dealer wins!"
-        elif dealer_value > 21 or player_total > dealer_value:
-            self.player_bankroll += sum(hand.bet for hand in self.player_hands)
-            return "Player wins!"
-        elif player_total < dealer_value:
-            self.player_bankroll -= sum(hand.bet for hand in self.player_hands)
-            return "Dealer wins!"
-        else:
-            return "It's a tie!"
+        for i, hand in enumerate(self.player_hands):
+            player_total = hand.calculate_value()
+            if player_total > 21:
+                results.append(f'Player Hand {i+1} busts!')
+                self.player_bankroll -= hand.bet
+            elif dealer_value > 21 or player_total > dealer_value:
+                results.append(f'Player Hand {i+1} wins!')
+                self.player_bankroll += hand.bet
+            elif player_total < dealer_value:
+                results.append(f'Dealer wins against Player Hand {i+1}!')
+                self.player_bankroll -= hand.bet
+            else:
+                results.append(f'Player Hand {i+1} ties with Dealer.')
+        
+        return '\n'.join(results)
     
     def place_bet(self):
         while True:
@@ -206,7 +211,38 @@ class PokerGame:
             self.player_hands = [hand1, hand2]
             for hand in self.player_hands:
                 hand.add_card(self.deck.deal_card())
+            print(f"Hands split! New Hand {len(self.player_hands)} added.")
             self.show_hands()
+
+    def additional_betting_rounds(self):
+        for i, hand in enumerate(self.player_hands):
+            if not self.game_over:
+                while True:
+                    bet = input(f"Do you want to place an additional bet on Hand {i+1}? (Y/N): ").upper()
+                    if bet == 'Y':
+                        additional_bet = int(input(f"Place additional bet for Hand {i+1}: "))
+                        hand.bet += additional_bet
+                        break
+                    elif bet == 'N':
+                        break
+                    else:
+                        print("Invalid input. Please choose 'Y' or 'N'.")
+
+    def advanced_dealer_logic(self):
+        dealer_value = self.dealer_hand.calculate_value()
+        if dealer_value < 17:
+            print("Dealer has less than 17. Drawing more cards.")
+            while dealer_value < 17:
+                self.dealer_hand.add_card(self.deck.deal_card())
+                dealer_value = self.dealer_hand.calculate_value()
+                print(f'Dealer\'s Hand: {self.dealer_hand} (Value: {dealer_value})')
+        elif dealer_value == 17:
+            if any(card.rank == 'A' for card in self.dealer_hand.cards):
+                print("Dealer has a soft 17 (includes an Ace). Drawing more cards.")
+                while dealer_value < 18:
+                    self.dealer_hand.add_card(self.deck.deal_card())
+                    dealer_value = self.dealer_hand.calculate_value()
+                    print(f'Dealer\'s Hand: {self.dealer_hand} (Value: {dealer_value})')
 
 # Example usage
 if __name__ == "__main__":
